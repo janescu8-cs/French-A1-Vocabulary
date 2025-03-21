@@ -14,7 +14,7 @@ book_options = {
     "Tandem": tandem_words,
 }
 
-st.title("📚 日文單字測試遊戲")
+st.title("📚 法文單字測試遊戲")
 st.write("選擇一本書來挑戰你的詞彙能力！")
 
 # 讓使用者選擇一本書
