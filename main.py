@@ -30,10 +30,10 @@ def get_unique_words(num_words):
     random.shuffle(all_words)
     return all_words[:num_words]
 
-# 隱藏單字
+# 隱藏單字（填空）
 def mask_word(sentence, word):
     pattern = re.compile(re.escape(word), re.IGNORECASE)
-    hidden_word = word[0] + "_" * (len(word) - 2) + word[-1]
+    hidden_word = word[0] + "_" * (len(word) - 2) + word[-1] if len(word) > 2 else "_" * len(word)
     return pattern.sub(hidden_word, sentence)
 
 # AI 發音
@@ -48,13 +48,17 @@ def play_pronunciation(text, filename="pronunciation.mp3", wav_filename="pronunc
     else:
         st.error("⚠️ 無法播放音訊，音檔未正確生成。")
 
-# **使用者選擇題數**
+# 清理文字（忽略大小寫與符號）
+def clean_text(text):
+    return re.sub(r"[^a-zA-ZÀ-ÿ’'\- ]", '', text).lower().strip()
+
+# 使用者選擇題數
 num_questions = st.number_input("輸入測試題數", min_value=1, max_value=len(word_data), value=10, step=1)
 
-# 選擇測試類型
+# 測試類型選擇
 test_type = st.radio("請選擇測試類型：", ["拼寫測試", "填空測試"])
 
-# **初始化 Session State**
+# 初始化 Session State
 if "initialized" not in st.session_state or st.session_state.selected_book != selected_book:
     st.session_state.words = get_unique_words(num_questions)
     st.session_state.current_index = 0
@@ -65,18 +69,28 @@ if "initialized" not in st.session_state or st.session_state.selected_book != se
     st.session_state.selected_book = selected_book
     st.session_state.initialized = True
 
+# 顯示題目
 if st.session_state.current_index < len(st.session_state.words):
     test_word, meaning, example_sentence = st.session_state.words[st.session_state.current_index]
     st.write(f"🔍 提示：{meaning}")
 
     if st.button("播放發音 🎵"):
         play_pronunciation(test_word if test_type == "拼寫測試" else example_sentence)
-    
-    user_answer = st.text_input(
-        "請輸入答案：" if test_type == "拼寫測試" else f"請填空：{mask_word(example_sentence, test_word)}",
-        value=st.session_state.input_value,
-        key=f"input_{st.session_state.current_index}",
-    )
+
+    # 顯示題目與輸入框
+    if test_type == "拼寫測試":
+        user_answer = st.text_input(
+            "請輸入單字的正確拼寫：",
+            value=st.session_state.input_value,
+            key=f"input_{st.session_state.current_index}",
+        )
+    else:
+        st.write(f"請填空：{mask_word(example_sentence, test_word)}")
+        user_answer = st.text_input(
+            "請填入缺漏的單字：",
+            value=st.session_state.input_value,
+            key=f"input_{st.session_state.current_index}",
+        )
 
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
@@ -84,31 +98,33 @@ if st.session_state.current_index < len(st.session_state.words):
     if st.button("提交答案"):
         st.session_state.submitted = True
 
+    # 答案判斷（使用 clean_text）
     if st.session_state.submitted:
-        if user_answer.lower().strip() == test_word.lower():
+        if clean_text(user_answer) == clean_text(test_word):
             st.success("✅ 正確！")
             st.session_state.score += 1
         else:
             st.error(f"❌ 錯誤，正確答案是 {test_word}")
             play_pronunciation(test_word)
             st.session_state.mistakes.append((test_word, meaning, example_sentence))
-        
+
         st.session_state.input_value = ""
         time.sleep(2)
         st.session_state.submitted = False
         st.session_state.current_index += 1
         st.rerun()
 
+# 測驗結束
 else:
     st.write(f"🎉 測試結束！你的得分：{st.session_state.score}/{len(st.session_state.words)}")
-    
+
     if st.session_state.mistakes:
         st.write("❌ 你答錯的單字：")
         for word, meaning, example in st.session_state.mistakes:
             st.write(f"**{word}** - {meaning}")
             st.write(f"例句：{example}")
             st.write("---")
-    
+
     if st.button("🔄 重新開始"):
         st.session_state.words = get_unique_words(num_questions)
         st.session_state.current_index = 0
